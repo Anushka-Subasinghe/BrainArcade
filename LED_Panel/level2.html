@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keypad Display - Level 2</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #e0f7fa;
+            margin: 0;
+            text-align: center;
+            color: #333;
+            background-image: url('level2_bg.png');
+            background-size: cover;
+            background-position: center;
+        }
+        #status {
+            font-size: 2em;
+            margin-top: 20px;
+            color: #3a21ca; /* Changed to white */
+            font-weight: bold;
+        }
+        #symbol {
+            font-size: 1.5em;
+            margin-top: 10px;
+            color: #00796b; /* Kept original color */
+            font-weight: bold;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Waiting for symbol...</div>
+    <div id="symbol"></div>
+    <button id="navigate-button">Go to Level 3</button>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoOlQcNTtSXECnoJ1F6ixFvQc8aToZYNI",
+            authDomain: "brainwave-arcade.firebaseapp.com",
+            projectId: "brainwave-arcade",
+            databaseURL: "https://brainwave-arcade-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            storageBucket: "brainwave-arcade.appspot.com",
+            messagingSenderId: "555476763482",
+            appId: "1:555476763482:web:4c6e6325ae8e8f0fc9a963",
+            measurementId: "G-VZ0V5TQPEK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase();
+
+        const statusDiv = document.getElementById("status");
+        const symbolDiv = document.getElementById("symbol");
+        const eventSource = new EventSource("http://127.0.0.1:5000/stream/level2");
+
+        // Variables for tracking attempts, scores, and reaction times
+        let attempts = 0;
+        let reactionTimes = [];
+        let scores = [];
+        let startTime = Date.now();
+
+        // Retrieve the registration number from local storage
+        const registrationNumber = localStorage.getItem('registrationNumber');
+
+        // Function to send data to Firebase
+        function sendToFirebase(data) {
+            set(ref(database, 'registrations/' + registrationNumber + '/level2_results'), data)
+            .then(() => {
+                console.log('Data sent to Firebase:', data);
+            })
+            .catch(error => {
+                console.error('Error sending data to Firebase:', error);
+            });
+        }
+
+        eventSource.onmessage = function(event) {
+            const data = event.data;
+            if (data.startsWith("Symbol to find: ")) {
+                const symbol = data.split("Symbol to find: ")[1];
+                symbolDiv.innerHTML = `Find and press all positions with the symbol: <strong>${symbol}</strong>`;
+            } else if (data === "Correct" || data.startsWith("Wrong")) {
+                let score = data === "Correct" ? 1 : 0;
+                scores.push(score);
+                statusDiv.innerHTML = `<strong>${data}</strong>`;
+                let reactionTime = (Date.now() - startTime) / 1000;
+                reactionTimes.push(reactionTime);
+                console.log("Reaction Time:", reactionTime, "seconds");
+
+                attempts++;
+                if (attempts >= 5) {
+                    let averageReactionTime = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
+                    let averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+                    const result = {
+                        averageReactionTime: averageReactionTime.toFixed(2),
+                        averageScore: averageScore.toFixed(2)
+                    };
+
+                    sendToFirebase(result);
+                    statusDiv.innerHTML = `Level complete! Average Reaction Time: ${result.averageReactionTime} seconds, Average Score: ${result.averageScore}`;
+                    eventSource.close();
+                } else {
+                    startTime = Date.now();
+                }
+            }
+        };
+
+        eventSource.onerror = function() {
+            statusDiv.innerHTML = "<strong>Connection error</strong>";
+        };
+
+        document.getElementById('navigate-button').addEventListener('click', function() {
+            fetch('http://localhost:5000/change-level', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ level: 3 })
+            }).then(() => {
+                window.location.href = 'level3.html';
+            });
+        });
+    </script>
+</body>
+</html>

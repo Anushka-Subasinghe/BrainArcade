@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Registration Number</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-image: url('login_background.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            margin: 0;
+        }
+        form {
+            background-color: rgba(255, 255, 255, 0.8); /* Slight transparency */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 1em;
+            background-color: #32cd32;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #228b22;
+        }
+        #registration-button {
+            background-color: #007bff;
+        }
+        #registration-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <form id="registrationSelectionForm">
+        <h2>Select Your Registration Number</h2>
+
+        <label for="registrationNumber">Registration Number:</label>
+        <select id="registrationNumber" required>
+            <option value="">Select your registration number</option>
+            <!-- Registration numbers will be populated here -->
+        </select>
+
+        <div style="display: flex; justify-content: space-between;">
+            <button type="submit">Proceed</button>
+            <button type="button" id="registration-button">Go to Registration</button>
+        </div>
+    </form>
+
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-database.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoOlQcNTtSXECnoJ1F6ixFvQc8aToZYNI",
+            authDomain: "brainwave-arcade.firebaseapp.com",
+            projectId: "brainwave-arcade",
+            databaseURL: "https://brainwave-arcade-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            storageBucket: "brainwave-arcade.appspot.com",
+            messagingSenderId: "555476763482",
+            appId: "1:555476763482:web:4c6e6325ae8e8f0fc9a963",
+            measurementId: "G-VZ0V5TQPEK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase();
+
+        const registrationNumberSelect = document.getElementById('registrationNumber');
+
+        // Fetch all registration numbers from Firebase
+        onValue(ref(database, 'registrations'), (snapshot) => {
+            snapshot.forEach(function(childSnapshot) {
+                const registrationNumber = childSnapshot.key;
+                const option = document.createElement('option');
+                option.value = registrationNumber;
+                option.textContent = registrationNumber;
+                registrationNumberSelect.appendChild(option);
+            });
+        });
+
+        document.getElementById('registrationSelectionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const selectedRegistrationNumber = registrationNumberSelect.value;
+
+            if (selectedRegistrationNumber) {
+                // Store the selected registration number in localStorage
+                localStorage.setItem('registrationNumber', selectedRegistrationNumber);
+
+                // Redirect to the appropriate level page
+                window.location.href = 'level1.html';
+            } else {
+                alert('Please select a registration number');
+            }
+        });
+
+        document.getElementById('registration-button').addEventListener('click', function() {
+            window.location.href = 'registration.html';
+        });
+    </script>
+</body>
+</html>

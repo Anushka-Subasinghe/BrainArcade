@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keypad Display - Level 3</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            color: #333;
+            background: url('level3_bg.png') no-repeat center center fixed;
+            background-size: cover;
+        }
+        #status {
+            font-size: 2em;
+            margin-top: 20px;
+            color: #1dc52b;
+            font-weight: bold;
+        }
+        #pattern {
+            font-size: 1.5em;
+            margin-top: 10px;
+            color: #00796b;
+            font-weight: bold;
+        }
+        #prediction {
+            font-size: 1.5em;
+            margin-top: 20px;
+            color: #3f51b5;
+            font-weight: bold;
+        }
+        #logout-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #ff5722;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #reattempt-button {
+            display: none;
+            padding: 10px 15px;
+            font-size: 1em;
+            background-color: #32cd32;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #reattempt-button:hover {
+            background-color: #228b22;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Waiting for pattern...</div>
+    <div id="pattern"></div>
+    <div id="prediction"></div>
+    <button id="logout-button">Logout</button>
+    <button id="reattempt-button">Reattempt</button>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+        
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoOlQcNTtSXECnoJ1F6ixFvQc8aToZYNI",
+            authDomain: "brainwave-arcade.firebaseapp.com",
+            projectId: "brainwave-arcade",
+            databaseURL: "https://brainwave-arcade-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            storageBucket: "brainwave-arcade.appspot.com",
+            messagingSenderId: "555476763482",
+            appId: "1:555476763482:web:4c6e6325ae8e8f0fc9a963",
+            measurementId: "G-VZ0V5TQPEK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase();
+
+        const statusDiv = document.getElementById("status");
+        const patternDiv = document.getElementById("pattern");
+        const predictionDiv = document.getElementById("prediction");
+        const reattemptButton = document.getElementById("reattempt-button");
+        const eventSource = new EventSource("http://127.0.0.1:5000/stream/level3");
+
+        // Variables for tracking attempts, scores, and reaction times
+        let attempts = 0;
+        let reactionTimes = [];
+        let scores = [];
+        let startTime = Date.now();
+
+        // Retrieve the registration number from local storage
+        const registrationNumber = localStorage.getItem('registrationNumber');
+
+        // Function to send data to Firebase
+        function sendToFirebase(data) {
+            set(ref(database, 'registrations/' + registrationNumber + '/level3_results'), data)
+            .then(() => {
+                console.log('Data sent to Firebase:', data);
+            })
+            .catch(error => {
+                console.error('Error sending data to Firebase:', error);
+            });
+        }
+
+        // Function to fetch user details and send them for prediction
+        function fetchAndPredict() {
+            get(ref(database, 'registrations/' + registrationNumber))
+            .then(snapshot => {
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    
+                    // Convert "yes"/"no" to 1/0
+                    const yesNoToBinary = value => value === 'yes' ? 1 : 0;
+
+                    // Calculate average reaction time
+                    const avgReactionTime = (parseFloat(userData.level1_results.averageReactionTime) +
+                                              parseFloat(userData.level2_results.averageReactionTime) +
+                                              parseFloat(userData.level3_results.averageReactionTime)) / 3;
+
+                    const dataToSend = {
+                        ageLessThanFive: yesNoToBinary(userData.ageLessThanFive),
+                        familyHistory: yesNoToBinary(userData.familyHistory),
+                        birthWeight: yesNoToBinary(userData.birthWeight),
+                        attentionIssue: yesNoToBinary(userData.attentionIssue),
+                        socialIssue: yesNoToBinary(userData.socialIssue),
+                        gender: userData.gender === 'male' ? 1 : 0,
+                        avgReactionTime: avgReactionTime,
+                        avgScore: parseFloat(userData.level3_results.averageScore)
+                    };
+
+                    fetch('http://127.0.0.1:5000/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ features: Object.values(dataToSend) })
+                    })
+                    .then(response => response.json())
+                    .then(prediction => {
+                        if (prediction.error) {
+                            predictionDiv.innerHTML = `<strong>Error: ${prediction.error}</strong>`;
+                        } else {
+                           // Ensure the prediction is an integer
+                        const predictionValue = parseInt(prediction.prediction, 10);
+
+                        // Map prediction number to messages
+                        const messages = [
+                            'Excellent',
+                            'Attempt more and improve yourself',
+                            'Attempt more and improve yourself',
+                            'Medical treatments are required',
+                            'Improved from early cognitive issues'
+                        ];
+
+                        // Use default message if predictionValue is out of range
+                        const predictionMessage = messages[predictionValue] || 'Unknown prediction';
+
+                        predictionDiv.innerHTML = `<strong>${predictionMessage}</strong>`;
+                        }
+                    })
+                    .catch(error => {
+                        predictionDiv.innerHTML = `<strong>Error: ${error.message}</strong>`;
+                    });
+                } else {
+                    console.error('No user data found.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching user data:', error);
+            });
+        }
+
+        eventSource.onmessage = function(event) {
+            const data = event.data;
+            if (data.startsWith("Pattern to find: ")) {
+                const pattern = data.split("Pattern to find: ")[1];
+                patternDiv.innerHTML = `Find and press the positions with the pattern: <strong>${pattern}</strong>`;
+            } else if (data === "Correct" || data.startsWith("Wrong")) {
+                let score = data === "Correct" ? 1 : 0;
+                scores.push(score);
+                statusDiv.innerHTML = `<strong>${data}</strong>`;
+                let reactionTime = (Date.now() - startTime) / 1000;
+                reactionTimes.push(reactionTime);
+                console.log("Reaction Time:", reactionTime, "seconds");
+
+                attempts++;
+                if (attempts >= 5) {
+                    let averageReactionTime = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
+                    let averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+                    const result = {
+                        averageReactionTime: averageReactionTime.toFixed(2),
+                        averageScore: averageScore.toFixed(2)
+                    };
+
+                    sendToFirebase(result);
+                    fetchAndPredict(); // Fetch user data and get prediction
+
+                    statusDiv.innerHTML = `Level complete! Average Reaction Time: ${result.averageReactionTime} seconds, Average Score: ${result.averageScore}`;
+                    reattemptButton.style.display = 'inline-block';
+
+                    eventSource.close();
+                } else {
+                    startTime = Date.now();
+                }
+            }
+        };
+
+        eventSource.onerror = function() {
+            statusDiv.innerHTML = "<strong>Connection error</strong>";
+        };
+
+        document.getElementById('logout-button').addEventListener('click', function() {
+            localStorage.removeItem('registrationNumber');
+            window.location.href = 'login.html';
+        });
+    </script>
+</body>
+</html>

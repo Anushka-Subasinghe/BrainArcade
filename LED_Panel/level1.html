@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keypad Display - Level 1</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f8ff;
+            margin: 0;
+            text-align: center;
+            color: #333;
+            background-image: url('level1_bg.png');
+            background-size: cover;
+            background-position: center;
+        }
+        #status {
+            font-size: 2em;
+            margin-top: 20px;
+            color: #ffffff; /* Changed color to white */
+            font-weight: bold;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Waiting for input...</div>
+    <button id="navigate-button">Go to Level 2</button>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoOlQcNTtSXECnoJ1F6ixFvQc8aToZYNI",
+            authDomain: "brainwave-arcade.firebaseapp.com",
+            projectId: "brainwave-arcade",
+            databaseURL: "https://brainwave-arcade-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            storageBucket: "brainwave-arcade.appspot.com",
+            messagingSenderId: "555476763482",
+            appId: "1:555476763482:web:4c6e6325ae8e8f0fc9a963",
+            measurementId: "G-VZ0V5TQPEK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase();
+
+        const statusDiv = document.getElementById('status');
+        const eventSource = new EventSource('http://localhost:5000/stream/level1');
+
+        // Variables for tracking attempts and scores
+        let attempts = 0;
+        let correctAttempts = 0;
+        let reactionTimes = [];
+        let startTime = Date.now();
+
+        // Retrieve the registration number from local storage
+        const registrationNumber = localStorage.getItem('registrationNumber');
+
+        // Function to send data to Firebase
+        function sendToFirebase(data) {
+            set(ref(database, 'registrations/' + registrationNumber + '/level1_results'), data
+        ).then(() => {
+                console.log('Data sent to Firebase:', data);
+            })
+            .catch(error => {
+                console.error('Error sending data to Firebase:', error);
+            });
+        }
+
+        eventSource.onmessage = function(event) {
+            const data = event.data;
+            console.log(data);  // Print the incoming data to the console
+
+            // Ensure that the pattern is generated only once per attempt
+            if (data === "Correct" || data === "Wrong") {
+                // Stop the timer and calculate the reaction time
+                let reactionTime = (Date.now() - startTime) / 1000; // in seconds
+                reactionTimes.push(reactionTime);
+                console.log("Reaction Time:", reactionTime, "seconds");
+
+                attempts++;
+                if (data === "Correct") {
+                    correctAttempts++;
+                }
+
+                // Update the status display
+                statusDiv.textContent = data;
+
+                // If attempts reach 5, calculate the average score and reaction time and send to Firebase
+                if (attempts >= 5) {
+                    let averageScore = (correctAttempts / attempts) * 100;
+                    let averageReactionTime = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
+
+                    const result = {
+                        averageScore: averageScore.toFixed(2),
+                        averageReactionTime: averageReactionTime.toFixed(2)
+                    };
+
+                    sendToFirebase(result);
+
+                    // Display game over message
+                    statusDiv.textContent = `Game Over! Average Score: ${result.averageScore}% | Average Reaction Time: ${result.averageReactionTime} seconds`;
+                    eventSource.close(); // Stop receiving messages
+
+                } else {
+                    // Reset the timer for the next attempt
+                    startTime = Date.now();
+                }
+            }
+        };
+
+        eventSource.onerror = function() {
+            statusDiv.innerHTML = "<strong>Connection error</strong>";
+        };
+
+        // Clear previous pattern generation when starting a new attempt
+        document.getElementById('navigate-button').addEventListener('click', function() {
+            fetch('http://localhost:5000/change-level', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ level: 2 })
+            }).then(() => {
+                window.location.href = 'level2.html';
+            });
+        });
+
+    </script>
+</body>
+</html>

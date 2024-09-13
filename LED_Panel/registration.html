@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Registration</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-image: url('registration_background.png');
+            background-size: cover;
+            background-position: center;
+        }
+        form {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 1em;
+            background-color: #32cd32;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #228b22;
+        }
+    </style>
+</head>
+<body>
+
+    <form id="registrationForm">
+        <h2>User Registration</h2>
+
+        <label for="name">Name:</label>
+        <input type="text" id="name" required>
+
+        <label for="birthday">Birthday:</label>
+        <input type="date" id="birthday" required>
+
+        <label for="ageLessThanFive">Is age less than 5?</label>
+        <select id="ageLessThanFive" required>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+
+        <label for="familyHistory">Is there a family history of illness?</label>
+        <select id="familyHistory" required>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+
+        <label for="birthWeight">Birth weight less than 2.5kg?</label>
+        <select id="birthWeight" required>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+
+        <label for="attentionIssue">Has identified attention issue?</label>
+        <select id="attentionIssue" required>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+
+        <label for="socialIssue">Has identified social issue?</label>
+        <select id="socialIssue" required>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+
+        <label for="gender">Gender:</label>
+        <select id="gender" required>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+        </select>
+
+        <button type="submit">Register</button>
+    </form>
+
+    <button class="login-btn" onclick="window.location.href='login.html'">Already registered? Click to login</button>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoOlQcNTtSXECnoJ1F6ixFvQc8aToZYNI",
+            authDomain: "brainwave-arcade.firebaseapp.com",
+            projectId: "brainwave-arcade",
+            databaseURL: "https://brainwave-arcade-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            storageBucket: "brainwave-arcade.appspot.com",
+            messagingSenderId: "555476763482",
+            appId: "1:555476763482:web:4c6e6325ae8e8f0fc9a963",
+            measurementId: "G-VZ0V5TQPEK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase();
+
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const birthday = document.getElementById('birthday').value;
+            const ageLessThanFive = document.getElementById('ageLessThanFive').value;
+            const familyHistory = document.getElementById('familyHistory').value;
+            const birthWeight = document.getElementById('birthWeight').value;
+            const attentionIssue = document.getElementById('attentionIssue').value;
+            const socialIssue = document.getElementById('socialIssue').value;
+            const gender = document.getElementById('gender').value;
+
+            // Generate unique registration number
+            const registrationNumber = `${name.replace(/\s/g, '')}_${birthday.replace(/-/g, '')}_${Date.now()}`;
+
+            // Save the details to Firebase
+            set(ref(database, 'registrations/' + registrationNumber), {
+                name: name,
+                birthday: birthday,
+                ageLessThanFive: ageLessThanFive,
+                familyHistory: familyHistory,
+                birthWeight: birthWeight,
+                attentionIssue: attentionIssue,
+                socialIssue: socialIssue,
+                gender: gender
+            }).then(() => {
+                // Store the registration number in localStorage
+                localStorage.setItem('registrationNumber', registrationNumber);
+
+                alert('Registration successful! Your registration number is: ' + registrationNumber);
+                // Redirect to the appropriate level page after successful registration
+                window.location.href = 'level1.html';
+            }).catch((error) => {
+                console.error('Error saving data to Firebase:', error);
+            });
+        });
+    </script>
+</body>
+</html>
